@@ -22,6 +22,7 @@ PWA (Progressive Web App) em Node.js/Express para conectar clientes a salões, c
 - [Resultados do teste E2E da home redesenhada (PR #11)](#resultados-do-teste-e2e-da-home-redesenhada-pr-11)
 - [Resultados do teste E2E da home Airbnb (PR #15)](#resultados-do-teste-e2e-da-home-airbnb-pr-15)
 - [Resultados do teste de login pós-PR #16](#resultados-do-teste-de-login-pós-pr-16)
+- [Botão Sair em /agendamentos (PR #23)](#botão-sair-em-agendamentos-pr-23)
 - [Plano de testes](#plano-de-testes-cadastros--admin)
 
 ## Como rodar
@@ -331,6 +332,45 @@ Execução em `http://localhost:3000` após o merge do PR #16 em `main`. Plano e
 ![PR #16 – admin SSO](./docs/screenshots/t2-admin-panel.png)
 
 Sidebar "Onde Tem? Painel Administrativo", topbar com `admin@ondetem.com` e os 4 cards do dashboard (Usuários Cadastrados / Empresas Ativas / Agendamentos / Receita Estimada).
+
+---
+
+## Botão Sair em /agendamentos (PR #23)
+
+A página `/agendamentos` (painel do usuário comum) ganhou opção de logout, antes ausente. O usuário ficava preso na sessão — a única saída era abrir DevTools e apagar o localStorage. Admin e empresa já tinham logout próprio; este PR traz consistência.
+
+**Mudanças**
+- **Header desktop**: novo botão `Sair` (`<button id="btnSairAgendamentos">`) com ícone `bi-box-arrow-right`, ao lado do `Voltar`.
+- **Bottom-nav mobile**: o item genérico `Perfil` (que apontava para `#` e não fazia nada) virou `Sair` (`<a id="btnSairAgendamentosMobile">`) com o mesmo ícone.
+- Ambos chamam `OndeTemAuth.logout()` (mesma função usada em `/admin` e `/painel-empresa`) **com confirmação prévia**: o handler exibe `confirm('Deseja sair da sua conta?')` e só executa o logout se o usuário aceitar.
+- `OndeTemAuth.logout()` faz: `POST /api/logout` (invalida o token na sessão do servidor), `localStorage.removeItem('ondetem_token')` + `'ondetem_usuario'`, redireciona para `/login`.
+- Service Worker cache bumpado **v25 → v26** para invalidar o `agendamentos.html` antigo nos browsers.
+
+### Resultados do teste E2E (PR #23)
+
+Execução via Playwright sobre CDP em `http://localhost:3000` no `main` pós-merge. Plano em [`test-plan-logout-agendamentos.md`](./test-plan-logout-agendamentos.md).
+
+| # | Asserção | Resultado |
+|---|----------|-----------|
+| A | Botão `Sair` visível no header desktop ao lado de `Voltar` | ✅ passed |
+| B | Clicar `Sair` dispara diálogo nativo com texto exato `Deseja sair da sua conta?` | ✅ passed |
+| C | Após `OK` no diálogo, URL muda para `http://localhost:3000/login` | ✅ passed |
+| D | Após logout, `localStorage.ondetem_token` e `ondetem_usuario` retornam `null` | ✅ passed |
+| E | Botão `Sair` também aparece na bottom-nav em viewport mobile (390×800) substituindo o antigo `Perfil` | ✅ passed |
+
+### Evidências (prints)
+
+**A — Header desktop com botão Sair (ao lado de Voltar)**
+
+![Sair desktop](./docs/screenshots/agendamentos-logout-desktop.png)
+
+**E — Bottom-nav mobile com Sair (substituindo Perfil)**
+
+![Sair mobile](./docs/screenshots/agendamentos-logout-mobile.png)
+
+**C — Após confirmar logout, redireciona para `/login`**
+
+![Após logout](./docs/screenshots/agendamentos-logout-redirect-login.png)
 
 ---
 
